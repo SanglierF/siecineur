@@ -437,5 +437,5 @@ class Mlperceptron:
                 res += -1.0 * softmax_output_vector[index] * softmax_output_vector[j]
         return res
 
-    def error_last(self, output_layer_act, yzad): # obliczone przez zastosowanie lancuchowej dla kateg crossentropii, dla softmaxa i sigmoidalnej tak samo wychodzi
+    def error_last(self, output_layer_act, yzad):
         return np.subtract(output_layer_act, yzad)
