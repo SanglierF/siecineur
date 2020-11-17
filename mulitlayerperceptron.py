@@ -12,8 +12,7 @@ ADADELTA = "adadelta"
 ADAM = "adam"
 
 class Mlperceptron:
-    """TODO add variables for backpropagation like error etc, add history of error for matplotlib etc,
-    TODO add best biases weights for validation testing """
+
     def __init__(self, input_number, hidden_layer_number, output_number, alpha=0.05,
                  weight_random=0.1, hidden_layer_neuron_numbers=None, default_hlayer_neuron_numbers=30, default_act=RELU,
                  activation_function=None, error_threshold=0.15, max_epochs=20, batch_size=100, acc_freeze=3, optimalization=None, opteta=0.7, adambeta1=0.9, adambeta2=0.999):
@@ -55,7 +54,7 @@ class Mlperceptron:
         self.cache_bias_weights = [np.zeros(b.shape) for b in self.bias_layer]
         self.cache_weights = [np.zeros(w.shape) for w in self.hidden_layer_weights]
 
-        self.prev_weights_down = [np.zeros(w.shape) for w in self.hidden_layer_weights] # TODO daj None i checkuj w update_weights jesli none to dodaj po prostu wartosc co wyjdzie jakby byl problem z wymiaramia
+        self.prev_weights_down = [np.zeros(w.shape) for w in self.hidden_layer_weights]
         self.prev_weights_up = [np.zeros(w.shape) for w in self.hidden_layer_weights]
         self.prev_bias_down = [np.zeros(b.shape) for b in self.bias_layer]
         self.prev_bias_up = [np.zeros(b.shape) for b in self.bias_layer]
@@ -101,7 +100,7 @@ class Mlperceptron:
 
             batch_index = 0
 
-            batch_training = training_data[batch_index:(batch_index + self.batch_size)]  # TODO zrandomizować przedtem training data czy cos
+            batch_training = training_data[batch_index:(batch_index + self.batch_size)]
             batch_labels = training_labels[batch_index:(batch_index + self.batch_size)]
 
             while batch_index < len(training_data):
