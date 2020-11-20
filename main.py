@@ -12,7 +12,7 @@ import copy
 
 def main():
     # report2_1()
-    raport2_3()
+    raport3()
     exit()
 
 
@@ -184,8 +184,9 @@ def thresholdrange():
     """
 
 def raport3():
+    print("raport3")
     training_data, validation_data, test_data = ml.load_data() # inputs - 784, ouptuts - 10
-    neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, max_epochs=50, acc_freeze=9, default_hlayer_neuron_numbers=30, batch_size=100, optimalization=mlp.ADAM, opteta=0.9, default_act=mlp.SIG)
+    neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, max_epochs=50, acc_freeze=9, default_hlayer_neuron_numbers=50, batch_size=100, optimalization=mlp.ADAM, opteta=0.9, default_act=mlp.SIG, winit=mlp.XAVIER)
     #  neural_network.train(training_data[0], training_data[1], validation_data[0], validation_data[1])
     start = datetime.now()
     start_time = start.strftime("%H:%M:%S")

@@ -10,12 +10,14 @@ NESTROVA = "nestrova"
 ADAGRAD = "adagard"
 ADADELTA = "adadelta"
 ADAM = "adam"
+XAVIER = "xavier"
+HE = "he"
 
 class Mlperceptron:
 
     def __init__(self, input_number, hidden_layer_number, output_number, alpha=0.05,
                  weight_random=0.1, hidden_layer_neuron_numbers=None, default_hlayer_neuron_numbers=30, default_act=RELU,
-                 activation_function=None, error_threshold=0.15, max_epochs=20, batch_size=100, acc_freeze=3, optimalization=None, opteta=0.7, adambeta1=0.9, adambeta2=0.999):
+                 activation_function=None, error_threshold=0.15, max_epochs=20, batch_size=100, acc_freeze=3, optimalization=None, opteta=0.7, adambeta1=0.9, adambeta2=0.999, winit=None):
         self.input_number = input_number
         self.hidden_layer_number = hidden_layer_number
         self.hidden_layer_neuron_numbers = default_hlayer_neuron_numbers
@@ -25,7 +27,8 @@ class Mlperceptron:
 
         self.output_number = output_number
         self.alpha = alpha
-        self.weight_random = weight_random
+        self.winit = winit
+        self.weight_random = self.weight_random = weight_random
         self.act_func = activation_function
         self.error_threshold = error_threshold
         self.max_epochs = max_epochs
@@ -132,6 +135,7 @@ class Mlperceptron:
                                                             self.vectorize_label(training_labels[i], self.output_number))
             error_training = cost/len(training_data)
 
+
             # obliczanie kosztu dla val
             cost = 0
             for i in range(len(valid_data)):
@@ -237,21 +241,39 @@ class Mlperceptron:
 
     def initialize_arrays(self):
         # add input to hidden
-        layer = np.random.normal(0, self.weight_random, size=(self.hl_neuron_numbers[0], self.input_number))
-        bias = np.random.normal(0, self.weight_random, size=(self.hl_neuron_numbers[0], 1))
+        if self.winit is XAVIER:
+            weight_var = 2.0/(self.input_number + self.hl_neuron_numbers[0]) # or sqrt(6/xin+xout)
+        elif self.winit is HE:
+            weight_var = 2.0/self.input_number # or sqrt(6/xin)
+        else:
+            weight_var = self.weight_random
+        layer = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[0], self.input_number))
+        bias = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[0], 1))
         self.hidden_layer_weights.append(layer)
         self.bias_layer.append(bias)
         # add hidden to hidden
         for i in range(1, self.hidden_layer_number):
-            layer = np.random.normal(0, self.weight_random, size=(self.hl_neuron_numbers[i], self.hl_neuron_numbers[i-1]))  # ile tam czegoś
-            bias = np.random.normal(0, self.weight_random, size=(self.hl_neuron_numbers[i], 1))
+            if self.winit is XAVIER:
+                weight_var = 2.0/(self.hl_neuron_numbers[i] + self.hl_neuron_numbers[i-1])
+            elif self.winit is HE:
+                weight_var = 2.0/self.hl_neuron_numbers[i-1]
+            else:
+                weight_var = self.weight_random
+            layer = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[i], self.hl_neuron_numbers[i-1]))  # ile tam czegoś
+            bias = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[i], 1))
             self.hidden_layer_weights.append(layer)
             self.bias_layer.append(bias)
         # add hidden to output
-        self.output_layer_weights = np.random.normal(0, self.weight_random,
+        if self.winit is XAVIER:
+            weight_var = 2.0/(self.output_number + self.hl_neuron_numbers[self.hidden_layer_number-1])
+        elif self.winit is HE:
+            weight_var = 2.0/self.hl_neuron_numbers[self.hidden_layer_number-1]
+        else:
+            weight_var = self.weight_random
+        self.output_layer_weights = np.random.normal(0, weight_var,
                                                      size=(self.output_number, self.hl_neuron_numbers[self.hidden_layer_number-1]))  # ile tam czegoś
         self.hidden_layer_weights.append(self.output_layer_weights)
-        self.output_bias = np.random.normal(0, self.weight_random, size=(self.output_number, 1))
+        self.output_bias = np.random.normal(0, weight_var, size=(self.output_number, 1))
         self.bias_layer.append(self.output_bias)
 
     def forwardpropagation(self, training_input):  # return output column with label chances
