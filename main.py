@@ -7,12 +7,13 @@ import generator as ger
 import csv
 import mnist_loader as ml # https://github.com/mnielsen/neural-networks-and-deep-learning <- data and mnist loader for python3
 import mulitlayerperceptron as mlp
+import conv as cnv
 import copy
 
 
 def main():
     # report2_1()
-    raport3()
+    raport3_2()
     exit()
 
 
@@ -183,10 +184,192 @@ def thresholdrange():
     print(perceptron.test(np.array([0.71, 0.71]), 1))
     """
 
-def raport3():
-    print("raport3")
+def singletest():
+    print("single_test")
     training_data, validation_data, test_data = ml.load_data() # inputs - 784, ouptuts - 10
     neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, max_epochs=50, acc_freeze=9, default_hlayer_neuron_numbers=50, batch_size=100, optimalization=mlp.ADAM, opteta=0.9, default_act=mlp.SIG, winit=mlp.XAVIER)
+    #  neural_network.train(training_data[0], training_data[1], validation_data[0], validation_data[1])
+    start = datetime.now()
+    start_time = start.strftime("%H:%M:%S")
+    t0 = time.clock()
+    print("start_time")
+    print(start_time)
+    neural_network.train(training_data[0], training_data[1], validation_data[0], validation_data[1])
+    end = datetime.now()
+    end_time = end.strftime("%H:%M:%S")
+    t1 = time.clock()
+    print("end_time")
+    print(end_time)
+    elapsed = t1 - t0
+    print("elapsed time")
+    print(str(timedelta(seconds=elapsed)))
+
+    print("celnosc: ")
+    print(neural_network.accuracy(test_data[0], test_data[1]))
+
+def raport3_1():
+    print("raport3_1")
+    repeat_times = 3
+    training_data, validation_data, test_data = ml.load_data()  # inputs - 784, ouptuts - 10
+
+    neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=30, acc_freeze=14,
+                                      default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG)
+    hidden_layer_weights_r, bias_layer_r = neural_network.get_weights()  # zapamietaj poczatkowe wagi
+    hidden_layer_weights = copy.deepcopy(hidden_layer_weights_r)
+    bias_layer = copy.deepcopy(bias_layer_r)
+
+    start = datetime.now()
+    start_time = start.strftime("%H:%M:%S")
+    t0 = time.clock()
+    print("start_time")
+    print(start_time)
+
+    for i in range(repeat_times):
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=30, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG, optimalization=mlp.MOMENTUM)
+        neural_network.set_weights(copy.deepcopy(hidden_layer_weights_r), copy.deepcopy(bias_layer_r))
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "momentumclassic-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=30, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG, optimalization=mlp.NESTROVA)
+        neural_network.set_weights(copy.deepcopy(hidden_layer_weights_r), copy.deepcopy(bias_layer_r))
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "momentumnesterowa-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=30, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG, optimalization=mlp.ADAGRAD)
+        neural_network.set_weights(copy.deepcopy(hidden_layer_weights_r), copy.deepcopy(bias_layer_r))
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "AdaGrad-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=30, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG, optimalization=mlp.ADADELTA, opteta=0.9) #opteta to tutaj rho czyli decay rate
+        neural_network.set_weights(copy.deepcopy(hidden_layer_weights_r), copy.deepcopy(bias_layer_r))
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "adadelta-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=30, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG, optimalization=mlp.ADAM)
+        neural_network.set_weights(copy.deepcopy(hidden_layer_weights_r), copy.deepcopy(bias_layer_r))
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "adam-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+    end = datetime.now()
+    end_time = end.strftime("%H:%M:%S")
+    t1 = time.clock()
+    print("end_time")
+    print(end_time)
+    elapsed = t1 - t0
+    print("elapsed time")
+    print(str(timedelta(seconds=elapsed)))
+
+def raport3_2():
+    print("raport3_2")
+    repeat_times = 2
+    training_data, validation_data, test_data = ml.load_data()  # inputs - 784, ouptuts - 10
+
+
+    start = datetime.now()
+    start_time = start.strftime("%H:%M:%S")
+    t0 = time.clock()
+    print("start_time")
+    print(start_time)
+
+    for i in range(repeat_times):
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=50, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG,
+                                          winit=mlp.XAVIER)
+        hidden_layer_weights_r, bias_layer_r = neural_network.get_weights()  # zapamietaj poczatkowe wagi
+        hidden_layer_weights_r = copy.deepcopy(hidden_layer_weights_r)
+        bias_layer_r = copy.deepcopy(bias_layer_r)
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "xaviersigmo-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=50, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.RELU,
+                                          winit=mlp.XAVIER)
+        neural_network.set_weights(copy.deepcopy(hidden_layer_weights_r), copy.deepcopy(bias_layer_r))
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "xavierrelu-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=50, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.SIG,
+                                          winit=mlp.HE)
+        hidden_layer_weights_r, bias_layer_r = neural_network.get_weights()  # zapamietaj poczatkowe wagi
+        hidden_layer_weights_r = copy.deepcopy(hidden_layer_weights_r)
+        bias_layer_r = copy.deepcopy(bias_layer_r)
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "hesigmoid-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+        neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, weight_random=0.1, max_epochs=50, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, default_act=mlp.RELU,
+                                          winit=mlp.HE)
+        neural_network.set_weights(copy.deepcopy(hidden_layer_weights_r), copy.deepcopy(bias_layer_r))
+        training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0],
+                                                                                      training_data[1],
+                                                                                      validation_data[0],
+                                                                                      validation_data[1])
+        accuracy = neural_network.accuracy(test_data[0], test_data[1])
+        tname = "herelu-" + str(i + 1)
+        printresults2(tname, training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+
+    end = datetime.now()
+    end_time = end.strftime("%H:%M:%S")
+    t1 = time.clock()
+    print("end_time")
+    print(end_time)
+    elapsed = t1 - t0
+    print("elapsed time")
+    print(str(timedelta(seconds=elapsed)))
+
+def raport4():
+    print("raport4")
+    training_data, validation_data, test_data = ml.load_data()  # inputs - 784, ouptuts - 10
+    neural_network = cnv.Conv(784, 1, 10, alpha=0.1, max_epochs=50, acc_freeze=9,
+                                      default_hlayer_neuron_numbers=50, batch_size=100, optimalization=mlp.ADAM,
+                                      opteta=0.9, default_act=mlp.SIG, winit=mlp.XAVIER)
     #  neural_network.train(training_data[0], training_data[1], validation_data[0], validation_data[1])
     start = datetime.now()
     start_time = start.strftime("%H:%M:%S")
