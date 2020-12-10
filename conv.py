@@ -458,9 +458,10 @@ class Conv:
             for j in range(self.filters):
                 for x in range(28-2):
                     for y in range(28-2):
-                        error_sums[j] += np.sum(errors[i][j][x][y] * self.input_list[i][x: (x + 3), y: (y + 3)])  # iterating window for filter weight changes
+                        error_sums[j] += errors[i][j][x][y] * self.input_list[i][x: (x + 3), y: (y + 3)] # iterating window for filter weight changes
 
-        for i in range(self.filters): # TODO calculate weight change
+        for i in range(self.filters):
+            # pass
             self.filter_list[i] = self.filter_list[i] - (alphadiv * error_sums[i])
 
 
