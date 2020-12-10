@@ -12,8 +12,7 @@ import copy
 
 
 def main():
-    # report2_1()
-    raport3_2()
+    raport4()
     exit()
 
 
@@ -367,16 +366,16 @@ def raport3_2():
 def raport4():
     print("raport4")
     training_data, validation_data, test_data = ml.load_data()  # inputs - 784, ouptuts - 10
-    neural_network = cnv.Conv(784, 1, 10, alpha=0.1, max_epochs=50, acc_freeze=9,
-                                      default_hlayer_neuron_numbers=50, batch_size=100, optimalization=mlp.ADAM,
-                                      opteta=0.9, default_act=mlp.SIG, winit=mlp.XAVIER)
-    #  neural_network.train(training_data[0], training_data[1], validation_data[0], validation_data[1])
+    neural_network = cnv.Conv(784, 1, 10, alpha=0.1, max_epochs=2, acc_freeze=14,
+                                      default_hlayer_neuron_numbers=50, batch_size=100, winit=cnv.XAVIER, activation_function=cnv.SIG, optimalization=cnv.ADAM)
     start = datetime.now()
     start_time = start.strftime("%H:%M:%S")
     t0 = time.clock()
     print("start_time")
     print(start_time)
-    neural_network.train(training_data[0], training_data[1], validation_data[0], validation_data[1])
+    training_data = training_data[0][0: 1000], training_data[1][0:1000]
+    validation_data = validation_data[0][0: 100], validation_data[1][0:100]
+    training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0], training_data[1], validation_data[0], validation_data[1])
     end = datetime.now()
     end_time = end.strftime("%H:%M:%S")
     t1 = time.clock()
@@ -387,7 +386,43 @@ def raport4():
     print(str(timedelta(seconds=elapsed)))
 
     print("celnosc: ")
-    print(neural_network.accuracy(test_data[0], test_data[1]))
+    # accuracy = neural_network.accuracy(test_data[0], test_data[1])
+    accuracy = 0
+    print(accuracy)
+
+    printresults2("conv-test", training_errors, val_errors, val_accuracy, stop_reason, accuracy)
+
+def raport4_2():
+    print("raport4")
+    training_data, validation_data, test_data = ml.load_data()  # inputs - 784, ouptuts - 10
+    neural_network = mlp.Mlperceptron(784, 1, 10, alpha=0.1, max_epochs=20, acc_freeze=14,
+                                          default_hlayer_neuron_numbers=50, batch_size=100, winit=mlp.XAVIER,
+                                          activation_function=mlp.SIG, optimalization=mlp.ADAM)
+    start = datetime.now()
+    start_time = start.strftime("%H:%M:%S")
+    t0 = time.clock()
+    print("start_time")
+    print(start_time)
+    training_data = training_data[0][0: 1000], training_data[1][0:1000]
+    validation_data = validation_data[0][0: 100], validation_data[1][0:100]
+    training_errors, val_errors, val_accuracy, stop_reason = neural_network.train(training_data[0], training_data[1],
+                                                                                  validation_data[0],
+                                                                                  validation_data[1])
+    end = datetime.now()
+    end_time = end.strftime("%H:%M:%S")
+    t1 = time.clock()
+    print("end_time")
+    print(end_time)
+    elapsed = t1 - t0
+    print("elapsed time")
+    print(str(timedelta(seconds=elapsed)))
+
+    print("celnosc: ")
+    # accuracy = neural_network.accuracy(test_data[0], test_data[1])
+    accuracy = 0
+    print(accuracy)
+
+    printresults2("conv-mlp", training_errors, val_errors, val_accuracy, stop_reason, accuracy)
 
 def raport2_1():
     repeat_times = 3

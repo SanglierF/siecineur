@@ -18,7 +18,7 @@ class Conv:
 
     def __init__(self, input_number, hidden_layer_number, output_number, alpha=0.05,
                  weight_random=0.1, hidden_layer_neuron_numbers=None, default_hlayer_neuron_numbers=30, default_act=RELU,
-                 activation_function=None, error_threshold=0.15, max_epochs=20, batch_size=100, acc_freeze=3, optimalization=None, opteta=0.7, adambeta1=0.9, adambeta2=0.999, winit=HE):
+                 activation_function=None, error_threshold=0.15, max_epochs=20, batch_size=100, acc_freeze=3, optimalization=None, opteta=0.7, adambeta1=0.9, adambeta2=0.999, winit=HE, filternumber=8):
         self.input_number = input_number
         self.hidden_layer_number = hidden_layer_number
         self.hidden_layer_neuron_numbers = default_hlayer_neuron_numbers
@@ -50,7 +50,7 @@ class Conv:
         self.errors_layer = None  # for backpropagation
 
 
-        self.filters = 32
+        self.filters = filternumber
         self.kernelsize = 3
         self.kernelstep = 1
         self.poolsize = 2
@@ -62,7 +62,8 @@ class Conv:
         self.filter_biases = []
 
         self.pool_list = []
-        self.pool_list_biases = []  # TODO moze nie
+
+        self.input_list = []
 
         self.initialize_arrays()  # przesuniety z poczatku train aby można było podmieniać
 
@@ -108,14 +109,27 @@ class Conv:
 
             while batch_index < len(training_data):
 
+                print("nrbatcha" + batch_index.__str__())
+
+                self.input_list = []
+
                 errors_lay = []
                 error_lay_bias = []
                 all_act_vals = []
                 all_net_vals = []
 
+                # przechowywanie danych do back conv
+                all_filter_acts = []
+                all_filters_errors = []
+
                 for i in range(self.batch_size):
-                    act_vals, net_vals = self.forwardpropagation(batch_training[i])
+                    act_vals, net_vals, filter_acts, filter_nets, flattenedpool, spindexes = self.forwardpropagation(batch_training[i]) # TODO add act_filters, net_filters?
                     error_layers, error_layers_bias = self.backpropagation(net_vals, self.vectorize_label(batch_labels[i], self.output_number), act_vals)
+                    # err = error_layers[len(error_layers)-1]  # Error z warstwy najbliżej wejscia TODO maybe bias?
+                    err = error_layers_bias[len(error_layers_bias) - 1]  # Error z warstwy najbliżej wejscia TODO maybe bias?
+
+                    error_conv = self.conv_back(err, flattenedpool, filter_nets, filter_acts, spindexes)
+                    all_filters_errors.append(error_conv)
 
                     errors_lay.append(error_layers)
                     error_lay_bias.append(error_layers_bias)
@@ -123,23 +137,26 @@ class Conv:
                     all_net_vals.append(net_vals)
 
                 self.change_weights(errors_lay, error_lay_bias, all_act_vals)
+                self.conv_change_weights(all_filters_errors)
 
                 batch_index = batch_index + self.batch_size
 
 
             # obliczanie kosztu dla training
+            """
             cost = 0
             for i in range(len(training_data)):
                 act_vals, net_vals = self.forwardpropagation(training_data[i])
                 cost = cost + self.categorical_crossentropy(act_vals[len(act_vals) - 1],
                                                             self.vectorize_label(training_labels[i], self.output_number))
             error_training = cost/len(training_data)
+            """
 
 
             # obliczanie kosztu dla val
             cost = 0
             for i in range(len(valid_data)):
-                act_vals, net_vals = self.forwardpropagation(valid_data[i])
+                act_vals, net_vals, t, t1, t2, t3 = self.forwardpropagation(valid_data[i])
                 cost = cost + self.categorical_crossentropy(act_vals[len(act_vals) - 1], self.vectorize_label(valid_labels[i], self.output_number))
             error_val = cost/len(valid_data)
             current_epoch += 1
@@ -233,34 +250,35 @@ class Conv:
     def accuracy(self, test_inputs, test_labels):
         correct = 0.0
         for i in range(len(test_inputs)):
-            yvect, net_val = self.forwardpropagation(test_inputs[i])
+            yvect, net_val, t, t1, t2, t3 = self.forwardpropagation(test_inputs[i])
             label = np.argmax(yvect[len(yvect)-1], axis=0)  # index of max value
             if label == test_labels[i]:
                 correct = correct + 1
         return correct/len(test_inputs)
 
     def initialize_arrays(self):
-        # add input to hidden
-        if self.winit is XAVIER:
-            weight_var = 2.0/(self.input_number + self.hl_neuron_numbers[0]) # or sqrt(6/xin+xout)
-        elif self.winit is HE:
-            weight_var = 2.0/self.input_number # or sqrt(6/xin)
-        else:
-            weight_var = self.weight_random
-        # TODO add conv layer pool layer and flattened
+
+        # add conv layer weights
         for i in range(self.filters):
-            weight_var = 2.0 / self.kernelsize
-            filter_weights = np.random.normal(0, weight_var, size=(self.kernelsize, self.kernelsize))
-            bias = np.random.normal(0, weight_var, size=(1, 1))
+            weight_var_conv = 2.0 / self.kernelsize
+            filter_weights = np.random.normal(0, weight_var_conv, size=(self.kernelsize, self.kernelsize))
+            bias = np.random.normal(0, weight_var_conv, size=(1, 1))
             self.filter_list.append(filter_weights)
             self.filter_biases.append(bias)
-        for i in range(self.filters):  # TODO add pool index keeper idk
-            pass
 
-        layer = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[0], self.input_number)) # TODO change to flattened conv layer
+        # add flatten to hidden weights
+        flatpoollayer = 13 * 13 * self.filters
+        if self.winit is XAVIER:
+            weight_var = 2.0/(flatpoollayer + self.hl_neuron_numbers[0]) # or sqrt(6/xin+xout)
+        elif self.winit is HE:
+            weight_var = 2.0/flatpoollayer # or sqrt(6/xin)
+        else:
+            weight_var = self.weight_random
+        layer = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[0], flatpoollayer))
         bias = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[0], 1))
         self.hidden_layer_weights.append(layer)
         self.bias_layer.append(bias)
+
         # add hidden to hidden
         for i in range(1, self.hidden_layer_number):
             if self.winit is XAVIER:
@@ -273,6 +291,7 @@ class Conv:
             bias = np.random.normal(0, weight_var, size=(self.hl_neuron_numbers[i], 1))
             self.hidden_layer_weights.append(layer)
             self.bias_layer.append(bias)
+
         # add hidden to output
         if self.winit is XAVIER:
             weight_var = 2.0/(self.output_number + self.hl_neuron_numbers[self.hidden_layer_number-1])
@@ -287,38 +306,173 @@ class Conv:
         self.bias_layer.append(self.output_bias)
 
     def conv_layers(self, training_input):
+
         matrix = training_input.reshape(28, 28)  # reshape do macierzy
+        self.input_list.append(matrix)
         conv_layer_neurons = 26 * 26  # liczba neuronów w jednej warstwie conv
-        for i in range(conv_layer_neurons):
-            x = 0
-            y = 0
-            for k in range(self.filters):
-                b = self.filter_biases[k][0] # TODO change init - to remove [0]
-                net_val = np.sum(np.multiply(self.filter_list[k], matrix[x:x+self.kernelsize, y: y+self.kernelsize])) + self.filter_biases[k] # TODO do training inputa jakoś wyciągnij fragment obrazka// maybe add np.sum  np.rot90(self.filter_list[k], 2)
-                act_val = self.activation_function(net_val, RELU)  # TODO remove np.rot90???
-                # TODO add to list of activations and net_vals or something
-            if x < (26-self.kernelsize):
-                x = x + 1
+        net_val_convs = []
+        act_val_convs = []
+        # oblicz pobudzenie oraz aktywacje dla convolucji
+        for i in range(self.filters):
+            net_val = np.zeros(shape=(26, 26))
+            act_val = np.zeros(shape=(26, 26))
+            for x in range(28-2):
+                for y in range(28-2):
+                    net_val[x][y] = np.sum(np.multiply(self.filter_list[i], matrix[x:(x + 3), y: (y + 3)]))
+                    act_val[x][y] = self.relu(net_val[x][y])
+
+            net_val_convs.append(net_val)
+            act_val_convs.append(act_val)
+
+        # max pool
+        pools = []
+        poolsindexes = []
+        for i in range(self.filters):
+            singlepool = np.zeros(shape=(13, 13))
+            singlepoolsindexes = np.zeros(shape=(13, 13))
+            for x in range(13):
+                for y in range(13):
+                    singlepool[x][y] = np.amax(act_val_convs[i][(x*2): ((x*2)+2), (y*2): ((y*2)+2)])
+                    singlepoolsindexes[x][y] = np.argmax(act_val_convs[i][(x*2): ((x*2)+2), (y*2): ((y*2)+2)])
+            pools.append(singlepool)
+            poolsindexes.append(singlepoolsindexes)
+
+        #flatten
+        flattenedpool = pools[0].flatten()
+        flattenedpoolnumber = self.filters*13*13
+        for i in range(1, self.filters):
+            flattenedpool = np.concatenate([flattenedpool, pools[i].flatten()])
+        flattenedpool = np.reshape(flattenedpool, (flattenedpoolnumber,  1))
+        return net_val_convs, act_val_convs, flattenedpool, poolsindexes  # return conv activations and net_vals
+
+    def conv_back_trick(self, input_error, flattenedpool, net_vals, act_vals):
+        errors = np.transpose(input_error)
+        flatnets = net_vals[0].flatten()
+        for i in range(1, self.filters):
+            flatnets = np.concatenate([flatnets, net_vals[i].flatten()])
+        #flattenacts for trick
+        flatacts = act_vals[0].flatten()
+        for i in range(1, self.filters):
+            flatacts = np.concatenate([flatacts, act_vals[i].flatten()])
+
+        convgrad = np.zeros(shape=(26*26*8, 50))
+        i = 0
+        while i in range(26*26*8):
+            if flatacts[i] == flattenedpool[i//4]: # no division
+                convgrad[i] = errors[i]
+                i = i//4 + 4
             else:
-                x = 0
-                y = y + 1
-        print("koniec")
-        # do pooling
-        pool_heh = 13*13
-        for i in range(pool_heh):
-            pass
+                i = i+1
 
-        # do flatten 13x13x32 = 5408 wth?
+        for i in range(self.filters):
+            convgrad[i] = convgrad[i] * self.relu_der(flatnets[i])
 
-        pass  # return conv activations and net_vals
+        converrors = np.split(convgrad, self.filters)
+        for i in range(self.filters):
+            # converrors[i] = np.transpose(converrors[i])
+            converrors[i] = converrors[i].reshape(26, 26, 50)
+
+        return converrors
+
+
+    def conv_back(self, input_error, flattenedpool, net_vals, act_vals, spindexes):
+
+        # convgradient
+        input_err = np.reshape(input_error, newshape=(50, ))
+
+        conv_gradients2 = []
+        for i in range(self.filters):
+            conv_grad = np.zeros(shape=(26, 26, 50))
+            for x in range(13):
+                for y in range(13):
+                    index = spindexes[i][x][y]
+                    x1 = int(index % 2)
+                    y1 = 0
+                    if index > 1:
+                        y1 = 1
+                    conv_grad[(x*2 + x1)][(y*2 + y1)] = input_err
+
+            conv_grad2 = np.matmul(np.transpose(conv_grad), self.activation_function_der(net_vals[i]))
+            conv_grad2 = np.transpose(conv_grad2)
+            conv_grad2 = np.sum(conv_grad2, axis=2)
+            conv_gradients2.append(conv_grad2)
+        """
+            #exp flatten
+            cgrad = conv_grad.reshape(26*26, 50)
+            nval = np.reshape(net_vals[i].flatten(), newshape=(26*26, 1))
+            conv_grad2 = np.dot(cgrad, nval)
+            #conv_grad2 = np.multiply(np.transpose(conv_grad, (2, 0, 1)), self.activation_function_der(net_vals[i]))
+
+            conv_grad2 = conv_grad2.reshape(26, 26)
+
+            conv_gradients2.append(conv_grad2)  # transpose for usefulness
+            """
+
+
+
+        return conv_gradients2
+
+
+    def conv_back2(self, input_error, flattenedpool, net_vals, act_vals, spindexes):
+        # returned to
+        poolerrors = np.hsplit(input_error, self.filters)
+        filteerrors = []
+        for i in range(self.filters):
+            filteerrors.append(np.transpose(poolerrors[i].reshape(50, 13, 13))) # TODO maybe delete transpose idk\
+
+        # convgradient
+        conv_gradients = []
+        conv_gradients2 = []
+        for i in range(self.filters):
+            conv_gradients.append(np.zeros(shape=(26, 26)))
+
+        for i in range(self.filters):
+            conv_grad = np.zeros(shape=(26, 26, 50))
+            for x in range(13):
+                for y in range(13):
+                    index = spindexes[i][x][y]
+                    x1 = int(index % 2)
+                    y1 = 0
+                    if index > 1:
+                        y1 = 1
+                    conv_grad[(x*2 + x1)][(y*2 + y1)] = filteerrors[i][x][y]
+
+            conv_grad2 = np.matmul(np.transpose(conv_grad), self.activation_function_der(net_vals[i]))
+            conv_gradients2.append(np.transpose(conv_grad2))  # transpose for usefulness
+
+
+        return conv_gradients2
+
+
+
+    def conv_change_weights(self, errors):
+
+        alphadiv = self.alpha / self.batch_size
+
+        error_sums = []
+        for i in range(self.filters):
+            error_sums.append(np.zeros(shape=(3, 3)))
+
+
+        for i in range(len(errors)): # calculating weight change
+            for j in range(self.filters):
+                for x in range(28-2):
+                    for y in range(28-2):
+                        error_sums[j] += np.sum(errors[i][j][x][y] * self.input_list[i][x: (x + 3), y: (y + 3)])  # iterating window for filter weight changes
+
+        for i in range(self.filters): # TODO calculate weight change
+            self.filter_list[i] = self.filter_list[i] - (alphadiv * error_sums[i])
+
 
     def forwardpropagation(self, training_input):  # return output column with label chances
         activation_layer = []
         net_val_layer = []
-        self.conv_layers(training_input)
 
-        activation_layer.append(np.reshape(training_input, (training_input.size, 1)))  # TODO remove those since input is replaced by flatten?
-        net_val_layer.append(np.reshape(training_input, (training_input.size, 1)))  # TODO replace by flattened net_vals?
+        convnets, convact, flattenedpool, spindexes = self.conv_layers(training_input)
+
+        activation_layer.append(flattenedpool)
+        net_val_layer.append(flattenedpool)
+
         for i in range(len(self.hidden_layer_weights)-1):
             lval = self.net_val(self.hidden_layer_weights[i], self.bias_layer[i], activation_layer[i]) # zwraca obliczone pobudzenie dla każdej warstwy
             net_val_layer.append(lval)
@@ -328,7 +482,7 @@ class Conv:
         net_val_layer.append(oval)
         oact = self.softmax(oval)
         activation_layer.append(oact)
-        return activation_layer, net_val_layer #add netval and actof conv?
+        return activation_layer, net_val_layer, convact, convnets, flattenedpool, spindexes
 
     """param net_val net_values, yzad_vector
         zwraca warsty bledu, kolumna bledow dla biasiow, macierz bledow dla reszty wag
@@ -336,7 +490,7 @@ class Conv:
         index len - pierwsza warstwa
     """
 
-    def backpropagation(self, net_val, yzad_vector, act_vals):  # label musi być wektorem wyjść z mnist gita
+    def backpropagation(self, net_val, yzad_vector, act_vals):  # label musi być wektorem wyjść z mnist gita  TODO zwraca mi dla warstw połączonej aż do flattenedpool i jego biasów same błędy na change weights dodać metoda
         error_layers = []
         error_layers_bias = []
         layers = len(net_val)
